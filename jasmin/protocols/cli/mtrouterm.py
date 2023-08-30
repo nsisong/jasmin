@@ -8,7 +8,7 @@ from jasmin.protocols.cli.managers import PersistableManager, Session
 from jasmin.routing.Routes import (DefaultRoute, StaticMTRoute, RandomRoundrobinMTRoute, FailoverMTRoute)
 from jasmin.routing.jasminApi import SmppClientConnector
 
-MTROUTES = ['DefaultRoute', 'StaticMTRoute', 'RandomRoundrobinMTRoute', 'FailoverMTRoute']
+MTROUTES = ['DefaultRoute', 'StaticMTRoute', 'RandomRoundrobinMTRoute', 'FailoverMTRoute', 'HttpConnectMTRout']
 
 # A config map between console-configuration keys and Route keys.
 MTRouteKeyMap = {'order': 'order', 'type': 'type'}
@@ -19,17 +19,18 @@ class InvalidCidSyntax(Exception):
 
 
 def validate_typed_connector_id(cid):
-    """Used to ensure the cid imput is typed to indicate the connector
+    """Used to ensure the cid input is typed to indicate the connector
     type, some examples:
     - smppc(con_1) would indicate con_1 is a SmppClientConnector
+    - httpc(con_2) would indicate con_2 is an HttpConnector
 
-    (connector_type, cid) will be return, otherwise a InvalidCidSyntax
-    exception will be throwed.
+    (connector_type, cid) will be returned, otherwise an InvalidCidSyntax
+    exception will be raised.
     """
 
-    m = re.match(r'(smppc)\(([A-Za-z0-9_-]{3,25})\)', cid, re.I)
+    m = re.match(r'(smppc|httpc)\(([A-Za-z0-9_-]{3,25})\)', cid, re.I)
     if not m:
-        raise InvalidCidSyntax('Invalid syntax for connector id, must be smppc(some_id).')
+        raise InvalidCidSyntax('Invalid syntax for connector id, must be smppc(some_id) or httpc(some_id).')
 
     return m.group(1).lower(), m.group(2)
 
@@ -86,6 +87,10 @@ def MTRouteBuild(fCallback):
                         'Unknown MT Route type:%s, available types: %s' % (arg, ', '.join(MTROUTES)))
                 elif _type == 'DefaultRoute':
                     self.sessBuffer['order'] = 0
+                elif _type == 'HttpConnectMTRout':
+                    # Handle HTTP route specific options, e.g., http_bind, http_url
+                    # Set appropriate defaults or validation rules for HTTP routes
+                    pass  # Add your HTTP route handling code here
 
                 # Before setting a new route class, remove any previous route
                 # sessBuffer keys
@@ -138,6 +143,11 @@ def MTRouteBuild(fCallback):
 
                             # Make instance of SmppClientConnector
                             arg = SmppClientConnector(self.pb['smppcm'].getConnector(cid)['id'])
+                        
+                        elif ctype == 'httpc':
+                            # Handle HTTP connectors
+                            if cid not in self.protocol.managers['httpccm'].httpccs:
+                                raise Exception('Unknown httpc cid: %s' % (cid))
                         else:
                             raise NotImplementedError("Not implemented yet !")
                     except Exception as e:
